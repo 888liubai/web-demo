@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智能识别系统 - 完整版</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: "微软雅黑", sans-serif; }
+        body { background: #f0f0f0; padding: 20px; }
+        /* 主窗口 */
+        .app-window {
+            width: 950px; height: 680px; background: #fff; border: 1px solid #999;
+            border-radius: 6px; box-shadow: 0 0 12px rgba(0,0,0,0.2);
+            margin: 0 auto; display: flex; flex-direction: column; overflow: hidden;
+        }
+        /* 窗口标题栏 */
+        .window-title {
+            padding: 8px 15px; background: #e0e0e0; border-bottom: 1px solid #999;
+            font-size: 15px; font-weight: 600; color: #333;
+        }
+        /* 功能按钮分组栏 */
+        .tab-bar {
+            display: flex; flex-wrap: wrap; gap: 15px; padding: 8px 15px;
+            background: #f5f5f5; border-bottom: 1px solid #999; align-items: center;
+        }
+        .tab-group { display: flex; gap: 6px; align-items: center; }
+        .tab-group span { font-size: 13px; color: #333; font-weight: 500; }
+        button {
+            padding: 5px 12px; border: 1px solid #666; border-radius: 4px;
+            background: #f8f8f8; cursor: pointer; font-size: 13px;
+            transition: all 0.2s;
+        }
+        button:hover { background: #e5e5e5; }
+        button:active { background: #d8d8d8; }
+        button:disabled { background: #eee; cursor: not-allowed; color: #999; border-color: #ccc; }
+        /* 核心显示区（摄像头/图片/视频） */
+        .main-display {
+            flex: 1; background: #000; color: #fff;
+            display: flex; justify-content: center; align-items: center;
+            position: relative; overflow: hidden;
+        }
+        .main-display img, .main-display video {
+            max-width: 100%; max-height: 100%; object-fit: contain;
+        }
+        .tip-text { font-size: 18px; color: #ccc; text-align: center; }
+        /* 底部控制栏 */
+        .control-bar {
+            padding: 8px 15px; background: #f5f5f5; border-top: 1px solid #999;
+            display: flex; align-items: center; gap: 20px;
+        }
+        .volume-control { display: flex; align-items: center; gap: 8px; font-size:13px; }
+        .volume-control input { width: 100px; cursor: pointer; }
+        /* 状态信息区 */
+        .status-area {
+            padding: 10px 15px; border-top:1px solid #999; font-size:14px; line-height:1.8;
+            max-height: 140px; overflow-y: auto;
+        }
+        .text-blue { color: #0066FF; }
+        .text-red { color: #FF3333; }
+        .text-gray { color: #666; font-size:12px; margin-top:5px; }
+        /* 响应式适配 */
+        @media (max-width: 950px) {
+            .app-window { width:100%; height:auto; min-height:600px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-window">
+        <!-- 窗口标题 -->
+        <div class="window-title">智能识别系统 (ResNet18+智能AI+BLIP-2图像总结+Whisper语音转文字)</div>
+        
+        <!-- 功能按钮分组 -->
+        <div class="tab-bar">
+            <div class="tab-group">
+                <span>摄像头功能</span>
+                <button id="openCamera">开启拍照</button>
+                <button id="startRecord" disabled>开启录制</button>
+            </div>
+            <div class="tab-group">
+                <span>本地文件</span>
+                <button id="openImage">打开图片</button>
+                <button id="openVideo">打开视频</button>
+            </div>
+            <div class="tab-group">
+                <span>识别/总结</span>
+                <button id="aiRecog">智能AI识别</button>
+                <button id="localSummary">全维度本地总结</button>
+            </div>
+            <div class="tab-group">
+                <span>历史记录</span>
+                <button id="showHistory">查看历史记录</button>
+            </div>
+        </div>
+        
+        <!-- 核心显示区 -->
+        <div class="main-display" id="mainDisplay">
+            <div class="tip-text">请选择功能开始操作<br>📷摄像头 | 📂本地文件 | 🤖AI识别</div>
+        </div>
+        
+        <!-- 底部控制栏 -->
+        <div class="control-bar">
+            <button id="pauseBtn" disabled>暂停</button>
+            <div class="volume-control">
+                <span>音量：</span>
+                <input type="range" id="volumeSlider" min="0" max="1" step="0.1" value="0.5">
+                <span id="volumeVal">0.5</span>
+            </div>
+        </div>
+        
+        <!-- 状态信息区 -->
+        <div class="status-area" id="statusArea">
+            <div class="text-blue" id="resnetStatus">ResNet18识别结果：未开始</div>
+            <div id="audioStatus">音频转文字：无</div>
+            <div class="text-red" id="aiSummaryStatus">智能AI总结：无数据</div>
+            <div id="localSummaryStatus">全维度本地总结：无数据</div>
+            <div class="text-gray">当前设备：cuda | 数据量：58.17E | 所有模型已加载完成 ✔️</div>
+        </div>
+    </div>
+
+    <!-- 隐藏的文件选择器 -->
+    <input type="file" id="imgFileInput" accept="image/*" style="display:none">
+    <input type="file" id="videoFileInput" accept="video/*" style="display:none">
+
+    <script>
+        // ========== 全局变量 ==========
+        let cameraStream = null;    // 摄像头流
+        let mediaRecorder = null;   // 录制器
+        let recordedChunks = [];    // 录制数据
+        let currentMedia = null;    // 当前显示的媒体（图片/视频）
+        let historyData = [];       // 历史记录数据
+        let isPaused = false;       // 暂停状态
+
+        // ========== 获取DOM元素 ==========
+        const el = id => document.getElementById(id);
+        const $mainDisplay = el('mainDisplay');
+        // 摄像头/录制
+        const $openCamera = el('openCamera');
+        const $startRecord = el('startRecord');
+        // 文件操作
+        const $openImage = el('openImage');
+        const $openVideo = el('openVideo');
+        const $imgFileInput = el('imgFileInput');
+        const $videoFileInput = el('videoFileInput');
+        // AI功能
+        const $aiRecog = el('aiRecog');
+        const $localSummary = el('localSummary');
+        const $showHistory = el('showHistory');
+        // 控制按钮
+        const $pauseBtn = el('pauseBtn');
+        const $volumeSlider = el('volumeSlider');
+        const $volumeVal = el('volumeVal');
+        // 状态显示
+        const $resnetStatus = el('resnetStatus');
+        const $audioStatus = el('audioStatus');
+        const $aiSummaryStatus = el('aiSummaryStatus');
+        const $localSummaryStatus = el('localSummaryStatus');
+
+        // ========== 1. 音量调节功能（实时生效） ==========
+        $volumeSlider.addEventListener('input', () => {
+            const val = $volumeSlider.value;
+            $volumeVal.textContent = val;
+            // 控制视频音量
+            if (currentMedia && currentMedia.tagName === 'VIDEO') {
+                currentMedia.volume = val;
+            }
+            addHistory(`调节音量至 ${val}`);
+        });
+
+        // ========== 2. 开启拍照（调用摄像头 真实功能） ==========
+        $openCamera.addEventListener('click', async () => {
+            if (cameraStream) { // 再次点击 → 关闭摄像头
+                stopCamera();
+                $openCamera.textContent = '开启拍照';
+                $startRecord.disabled = true;
+                return;
+            }
+
+            try {
+                // 调用用户摄像头
+                cameraStream = await navigator.mediaDevices.getUserMedia({ 
+                    video: true, audio: true 
+                });
+                const video = document.createElement('video');
+                video.srcObject = cameraStream;
+                video.autoplay = true;
+                video.playsInline = true;
+                $mainDisplay.innerHTML = '';
+                $mainDisplay.appendChild(video);
+                currentMedia = video;
+
+                $openCamera.textContent = '关闭摄像头';
+                $startRecord.disabled = false;
+                $pauseBtn.disabled = false;
+                updateStatus('resnetStatus', `ResNet18识别结果：摄像头已开启 (分辨率: 1280x720)`);
+                addHistory('成功开启摄像头，进入拍照模式');
+            } catch (err) {
+                alert('摄像头调用失败！请允许摄像头权限或检查设备');
+                console.error(err);
+            }
+        });
+
+        // ========== 3. 开启录制（摄像头视频录制 真实功能） ==========
+        $startRecord.addEventListener('click', () => {
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                // 停止录制 → 下载视频
+                mediaRecorder.stop();
+                $startRecord.textContent = '开启录制';
+                updateStatus('aiSummaryStatus', '智能AI总结：录制已停止，准备生成视频文件');
+                addHistory('停止摄像头录制，正在生成视频文件');
+            } else {
+                // 开始录制
+                recordedChunks = [];
+                mediaRecorder = new MediaRecorder(cameraStream);
+                mediaRecorder.ondataavailable = (e) => recordedChunks.push(e.data);
+                mediaRecorder.onstop = () => {
+                    const blob = new Blob(recordedChunks, { type: 'video/mp4' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `摄像头录制_${new Date().getTime()}.mp4`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                };
+                mediaRecorder.start();
+                $startRecord.textContent = '停止录制';
+                updateStatus('aiSummaryStatus', '智能AI总结：正在录制视频...');
+                addHistory('开始摄像头视频录制');
+            }
+        });
+
+        // ========== 4. 打开图片（本地上传+预览 真实功能） ==========
+        $openImage.addEventListener('click', () => $imgFileInput.click());
+        $imgFileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const img = document.createElement('img');
+                img.src = e.target.result;
+                $mainDisplay.innerHTML = '';
+                $mainDisplay.appendChild(img);
+                currentMedia = img;
+                
+                updateStatus('resnetStatus', `ResNet18识别结果：已加载图片 (文件名: ${file.name})`);
+                addHistory(`上传本地图片：${file.name} (大小: ${(file.size/1024).toFixed(2)}KB)`);
+            };
+            reader.readAsDataURL(file);
+            $imgFileInput.value = '';
+        });
+
+        // ========== 5. 打开视频（本地上传+播放 真实功能） ==========
+        $openVideo.addEventListener('click', () => $videoFileInput.click());
+        $videoFileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const video = document.createElement('video');
+            video.src = URL.createObjectURL(file);
+            video.controls = true; // 显示播放控件
+            video.volume = $volumeSlider.value;
+            $mainDisplay.innerHTML = '';
+            $mainDisplay.appendChild(video);
+            currentMedia = video;
+
+            updateStatus('resnetStatus', `ResNet18识别结果：已加载视频 (文件名: ${file.name})`);
+            updateStatus('audioStatus', '音频转文字：视频音频已加载，等待识别');
+            addHistory(`上传本地视频：${file.name} (大小: ${(file.size/1024/1024).toFixed(2)}MB)`);
+            $pauseBtn.disabled = false;
+            $videoFileInput.value = '';
+        });
+
+        // ========== 6. 智能AI识别（模拟真实识别 生成结果） ==========
+        $aiRecog.addEventListener('click', () => {
+            if (!$mainDisplay.children.length) {
+                alert('请先上传图片/视频 或 开启摄像头！');
+                return;
+            }
+
+            updateStatus('resnetStatus', 'ResNet18识别结果：正在识别中... 🤖');
+            updateStatus('aiSummaryStatus', '智能AI总结：分析内容特征...');
+            
+            // 模拟识别耗时（1.5秒）
+            setTimeout(() => {
+                const randomResult = [
+                    "图像内容：室内场景，包含电子设备、文档，光线充足 | 置信度98.2%",
+                    "视频内容：动态画面，人物操作演示，语音内容清晰 | 置信度97.5%",
+                    "摄像头画面：实时取景，无遮挡，画面清晰 | 置信度99.0%"
+                ][Math.floor(Math.random()*3)];
+                
+                updateStatus('resnetStatus', `ResNet18识别结果：${randomResult}`);
+                updateStatus('audioStatus', '音频转文字：基于Whisper识别完成 → 内容清晰，无杂音');
+                updateStatus('aiSummaryStatus', `智能AI总结：识别完成 ✔️ ${randomResult}`);
+                addHistory(`执行智能AI识别，结果：${randomResult}`);
+            }, 1500);
+        });
+
+        // ========== 7. 全维度本地总结（生成结构化总结） ==========
+        $localSummary.addEventListener('click', () => {
+            if ($resnetStatus.textContent.includes('未开始')) {
+                alert('请先执行【智能AI识别】生成基础结果！');
+                return;
+            }
+
+            updateStatus('localSummaryStatus', '全维度本地总结：正在生成结构化报告...');
+            setTimeout(() => {
+                const summary = `✅ 内容维度：${currentMedia.tagName === 'IMG' ? '静态图像' : '动态视频/摄像头画面'}
+✅ 质量维度：画面清晰，无模糊/遮挡，符合识别要求
+✅ 数据维度：已完成ResNet18图像特征提取 + Whisper语音转文字
+✅ 结论维度：内容有效，可直接用于后续分析/归档`;
+                updateStatus('localSummaryStatus', `全维度本地总结：\n${summary}`);
+                addHistory('执行全维度本地总结，生成结构化报告');
+            }, 1200);
+        });
+
+        // ========== 8. 查看历史记录（弹窗展示所有操作记录） ==========
+        $showHistory.addEventListener('click', () => {
+            if (historyData.length === 0) {
+                alert('暂无操作历史记录');
+                return;
+            }
+            const historyStr = historyData.map((item, idx) => `${idx+1}. ${item}`).join('\n');
+            const win = window.open('', '_blank', 'width=600,height=500,top=100,left=200');
+            win.document.write(`
+                <html><head><meta charset="UTF-8"><title>操作历史记录</title>
+                <style>body{padding:20px;font-family:微软雅黑;}h2{color:#333;}p{line-height:1.8;font-size:14px;}</style>
+                </head><body>
+                <h2>📋 智能识别系统 - 操作历史</h2>
+                <p>${historyStr.replace(/\n/g, '<br>')}</p>
+                </body></html>
+            `);
+            win.document.close();
+        });
+
+        // ========== 9. 暂停按钮（通用暂停功能） ==========
+        $pauseBtn.addEventListener('click', () => {
+            isPaused = !isPaused;
+            if (isPaused) {
+                $pauseBtn.textContent = '继续';
+                // 暂停视频/录制/摄像头
+                if (currentMedia?.tagName === 'VIDEO') currentMedia.pause();
+                if (mediaRecorder?.state === 'recording') mediaRecorder.pause();
+                updateStatus('aiSummaryStatus', '智能AI总结：任务已暂停 ⏸️');
+                addHistory('暂停当前运行任务');
+            } else {
+                $pauseBtn.textContent = '暂停';
+                if (currentMedia?.tagName === 'VIDEO') currentMedia.play();
+                if (mediaRecorder?.state === 'paused') mediaRecorder.resume();
+                updateStatus('aiSummaryStatus', '智能AI总结：任务已继续 ▶️');
+                addHistory('继续当前暂停任务');
+            }
+        });
+
+        // ========== 工具函数 ==========
+        // 关闭摄像头
+        function stopCamera() {
+            cameraStream.getTracks().forEach(track => track.stop());
+            cameraStream = null;
+            $mainDisplay.innerHTML = '<div class="tip-text">摄像头已关闭<br>请选择功能开始操作</div>';
+            currentMedia = null;
+        }
+        // 更新状态文本
+        function updateStatus(id, text) {
+            el(id).innerHTML = text.replace(/\n/g, '<br>');
+        }
+        // 添加历史记录
+        function addHistory(text) {
+            const time = new Date().toLocaleTimeString();
+            historyData.push(`[${time}] ${text}`);
+        }
+    </script>
+</body>
+</html>
