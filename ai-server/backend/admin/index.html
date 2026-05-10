@@ -1,0 +1,1234 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智能识别系统 - 后台管理</title>
+
+    <!-- 引入 Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- 引入 Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <!-- 引入 ECharts -->
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+
+    <style>
+        :root {
+            --primary-color: #0d6efd;
+            --sidebar-width: 250px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: #f5f7fa;
+            min-height: 100vh;
+        }
+
+        .sidebar {
+            position: fixed;
+            top: 56px;
+            left: 0;
+            width: var(--sidebar-width);
+            height: calc(100vh - 56px);
+            background-color: #fff;
+            border-right: 1px solid #e8e8e8;
+            overflow-y: auto;
+            z-index: 100;
+            transition: transform 0.3s ease;
+        }
+
+        .sidebar.collapsed {
+            transform: translateX(-100%);
+        }
+
+        .content-wrapper {
+            margin-left: var(--sidebar-width);
+            padding: 20px;
+            min-height: calc(100vh - 56px);
+            transition: margin-left 0.3s ease;
+        }
+
+        .content-wrapper.expanded {
+            margin-left: 0;
+        }
+
+        .nav-link {
+            color: #606266;
+            padding: 12px 20px;
+            margin: 4px 12px;
+            border-radius: 8px;
+            transition: all 0.3s;
+        }
+
+        .nav-link:hover {
+            background-color: #ecf5ff;
+            color: var(--primary-color);
+        }
+
+        .nav-link.active {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        .card {
+            border: none;
+            border-radius: 12px;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            text-align: center;
+            padding: 24px;
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+        }
+
+        .stat-card .number {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .stat-card .label {
+            font-size: 0.95rem;
+            color: #909399;
+            margin-top: 8px;
+        }
+
+        .text-ellipsis {
+            max-width: 200px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .long-text {
+            max-width: 300px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .log-content {
+            max-width: 400px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .result-text {
+            max-width: 300px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .avatar-img {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid #f0f0f0;
+        }
+
+        .table {
+            margin-bottom: 0;
+        }
+
+        .table thead th {
+            background-color: #fafafa;
+            border-bottom: 2px solid #ebeef5;
+            font-weight: 600;
+            color: #606266;
+        }
+
+        .table tbody tr {
+            transition: background-color 0.2s;
+        }
+
+        .table tbody tr:hover {
+            background-color: #f5f7fa;
+        }
+
+        .btn-sm {
+            padding: 4px 12px;
+            font-size: 0.875rem;
+        }
+
+        .page-link {
+            color: var(--primary-color);
+            border: none;
+            margin: 0 4px;
+            border-radius: 6px;
+        }
+
+        .page-link:hover {
+            background-color: #ecf5ff;
+            color: var(--primary-color);
+        }
+
+        .page-item.active .page-link {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+        }
+
+        .spinner-border {
+            width: 3rem;
+            height: 3rem;
+        }
+
+        .toast-container {
+            position: fixed;
+            top: 80px;
+            right: 20px;
+            z-index: 9999;
+        }
+
+        .navbar-toggler {
+            border: none;
+        }
+
+        .navbar-toggler:focus {
+            box-shadow: none;
+        }
+
+        @media (max-width: 991.98px) {
+            .sidebar {
+                transform: translateX(-100%);
+            }
+
+            .sidebar.show {
+                transform: translateX(0);
+            }
+
+            .content-wrapper {
+                margin-left: 0;
+            }
+
+            .sidebar-overlay {
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0, 0, 0, 0.5);
+                z-index: 99;
+                display: none;
+            }
+
+            .sidebar-overlay.show {
+                display: block;
+            }
+        }
+
+        .card-header {
+            background: #fff;
+            border-bottom: 1px solid #ebeef5;
+            padding: 16px 20px;
+        }
+
+        .card-header h5 {
+            margin: 0;
+            font-weight: 600;
+            color: #303133;
+        }
+
+        .form-select, .form-control {
+            border-radius: 8px;
+            border-color: #dcdfe6;
+        }
+
+        .form-select:focus, .form-control:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.15);
+        }
+    </style>
+</head>
+<body>
+<!-- 导航栏 -->
+<nav class="navbar navbar-expand-lg navbar-dark bg-primary fixed-top">
+    <div class="container-fluid">
+        <button class="navbar-toggler me-2" type="button" id="sidebarToggle">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <a class="navbar-brand" href="#" onclick="navigateTo('dashboard')">
+            <i class="bi bi-speedometer2 me-2"></i>智能识别系统 - 后台管理
+        </a>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav ms-auto">
+                <li class="nav-item">
+                    <a class="nav-link" href="/" target="_blank">
+                        <i class="bi bi-house-door me-1"></i>前台首页
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#" onclick="logout()">
+                        <i class="bi bi-box-arrow-right me-1"></i>退出登录
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </div>
+</nav>
+
+<!-- 侧边栏遮罩 -->
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+<!-- 侧边栏 -->
+<div class="sidebar" id="sidebar">
+    <div class="py-3">
+        <ul class="nav flex-column">
+            <li class="nav-item">
+                <a class="nav-link" href="#" data-page="dashboard" onclick="navigateTo('dashboard')">
+                    <i class="bi bi-bar-chart-line me-2"></i>首页（统计）
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#" data-page="users" onclick="navigateTo('users')">
+                    <i class="bi bi-people me-2"></i>用户管理
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#" data-page="records" onclick="navigateTo('records')">
+                    <i class="bi bi-card-list me-2"></i>识别记录
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#" data-page="qa" onclick="navigateTo('qa')">
+                    <i class="bi bi-chat-dots me-2"></i>问答记录
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#" data-page="logs" onclick="navigateTo('logs')">
+                    <i class="bi bi-journal-text me-2"></i>操作日志
+                </a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<!-- 主内容区 -->
+<div class="content-wrapper" id="contentWrapper">
+    <!-- 内容将通过JS动态加载 -->
+</div>
+
+<!-- Toast 容器 -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- 加载遮罩 -->
+<div class="loading-overlay" id="loadingOverlay" style="display: none;">
+    <div class="spinner-border text-primary" role="status">
+        <span class="visually-hidden">加载中...</span>
+    </div>
+</div>
+
+<!-- 重置密码模态框 -->
+<div class="modal fade" id="resetPwdModal" tabindex="-1" aria-labelledby="resetPwdModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="resetPwdModalLabel">
+                    <i class="bi bi-key me-2"></i>重置密码
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="resetUserId">
+                <div class="mb-3">
+                    <label for="newPassword" class="form-label">新密码</label>
+                    <input type="password" class="form-control" id="newPassword" placeholder="请输入新密码 (默认: 123456)" value="123456">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="resetPassword()">确认重置</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 引入 Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    // ==================== 全局配置 ====================
+    const CONFIG = {
+        apiTimeout: 10000,
+        pageSizes: {
+            users: 10,
+            records: 10,
+            qa: 8,
+            logs: 15
+        },
+        tokenKey: 'admin_token'
+    };
+
+    // ==================== 全局状态 ====================
+    let currentPage = 'dashboard';
+    let pageData = {
+        current: 1,
+        total: 0
+    };
+    let myChart = null;
+
+    // ==================== 工具函数：Token 管理（核心修复：使用sessionStorage） ====================
+    function getToken() {
+        return sessionStorage.getItem('admin_token') || sessionStorage.getItem('token');
+    }
+
+    function setToken(token) {
+        sessionStorage.setItem(CONFIG.tokenKey, token);
+    }
+
+    function removeToken() {
+        sessionStorage.removeItem(CONFIG.tokenKey);
+    }
+
+    function logout() {
+        removeToken();
+        sessionStorage.clear();
+        showToast('已退出登录', 'info');
+        setTimeout(() => window.location.href = '/frontend/login.html', 1000);
+    }
+
+    // ========== 鉴权代码 ==========
+    (function checkAuth() {
+        const token = getToken();
+        if (!token) {
+            alert('请先登录管理员账号');
+            window.location.href = '/frontend/login.html?redirect=/admin';
+        }
+    })();
+
+    // ==================== 页面模板 ====================
+    const pageTemplates = {
+        dashboard: `
+            <div class="page-content" id="dashboardPage">
+                <h3 class="mb-4">
+                    <i class="bi bi-speedometer2 me-2"></i>系统数据统计
+                </h3>
+
+                <!-- 统计卡片 -->
+                <div class="row">
+                    <div class="col-md-3 col-sm-6 mb-4">
+                        <div class="card stat-card">
+                            <div class="card-body">
+                                <div class="number" id="userCount">--</div>
+                                <div class="label">
+                                    <i class="bi bi-people me-1"></i>注册用户数
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3 col-sm-6 mb-4">
+                        <div class="card stat-card">
+                            <div class="card-body">
+                                <div class="number" id="recordCount">--</div>
+                                <div class="label">
+                                    <i class="bi bi-card-list me-1"></i>识别记录数
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3 col-sm-6 mb-4">
+                        <div class="card stat-card">
+                            <div class="card-body">
+                                <div class="number" id="qaCount">--</div>
+                                <div class="label">
+                                    <i class="bi bi-chat-dots me-1"></i>问答记录数
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3 col-sm-6 mb-4">
+                        <div class="card stat-card">
+                            <div class="card-body">
+                                <div class="number" id="logCount">--</div>
+                                <div class="label">
+                                    <i class="bi bi-journal-text me-1"></i>操作日志数
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 图表区域 -->
+                <div class="row">
+                    <div class="col-md-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="mb-0">
+                                    <i class="bi bi-pie-chart me-2"></i>识别记录类型分布 (数据模拟展示)
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <div id="recordTypeChart" style="width: 100%; height: 400px;"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `,
+
+        users: `
+            <div class="page-content" id="usersPage">
+                <h3 class="mb-4">
+                    <i class="bi bi-people me-2"></i>用户管理
+                </h3>
+
+                <!-- 用户列表 -->
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">用户列表</h5>
+                        <div>
+                            <span class="text-muted me-2">共 <span id="userTotal">0</span> 个用户</span>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover">
+                                <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>用户名</th>
+                                    <th>昵称</th>
+                                    <th>角色</th>
+                                    <th>头像</th>
+                                    <th>创建时间</th>
+                                    <th>操作</th>
+                                </tr>
+                                </thead>
+                                <tbody id="userTableBody">
+                                <tr>
+                                    <td colspan="7" class="text-center text-muted">加载中...</td>
+                                </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `,
+
+        records: `
+            <div class="page-content" id="recordsPage">
+                <h3 class="mb-4">
+                    <i class="bi bi-card-list me-2"></i>识别记录管理
+                </h3>
+
+                <!-- 识别记录列表 -->
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">识别记录列表 (含软删除记录)</h5>
+                        <div>
+                            <span class="text-muted me-2">共 <span id="recordTotal">0</span> 条记录</span>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover">
+                                <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>用户</th>
+                                    <th>创建时间</th>
+                                    <th>状态</th>
+                                    <th>识别结果</th>
+                                    <th>操作</th>
+                                </tr>
+                                </thead>
+                                <tbody id="recordTableBody">
+                                <tr>
+                                    <td colspan="6" class="text-center text-muted">加载中...</td>
+                                </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `,
+
+        qa: `
+            <div class="page-content" id="qaPage">
+                <h3 class="mb-4">
+                    <i class="bi bi-chat-dots me-2"></i>专家问答记录管理
+                </h3>
+
+                <!-- 问答记录列表 -->
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">问答记录列表</h5>
+                        <div>
+                            <span class="text-muted me-2">共 <span id="qaTotal">0</span> 条记录</span>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover">
+                                <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>用户</th>
+                                    <th>创建时间</th>
+                                    <th>用户问题</th>
+                                    <th>AI回答</th>
+                                    <th>操作</th>
+                                </tr>
+                                </thead>
+                                <tbody id="qaTableBody">
+                                <tr>
+                                    <td colspan="6" class="text-center text-muted">加载中...</td>
+                                </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `,
+
+        logs: `
+            <div class="page-content" id="logsPage">
+                <h3 class="mb-4">
+                    <i class="bi bi-journal-text me-2"></i>系统操作日志管理
+                </h3>
+
+                <!-- 日志列表 -->
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">操作日志列表</h5>
+                        <div>
+                            <span class="text-muted me-2">共 <span id="logTotal">0</span> 条日志</span>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover">
+                                <thead>
+                                <tr>
+                                    <th>日志ID</th>
+                                    <th>创建时间</th>
+                                    <th>日志内容</th>
+                                </tr>
+                                </thead>
+                                <tbody id="logTableBody">
+                                <tr>
+                                    <td colspan="3" class="text-center text-muted">加载中...</td>
+                                </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `
+    };
+
+    // ==================== 工具函数 ====================
+
+    // 显示加载状态
+    function showLoading() {
+        document.getElementById('loadingOverlay').style.display = 'flex';
+    }
+
+    // 隐藏加载状态
+    function hideLoading() {
+        document.getElementById('loadingOverlay').style.display = 'none';
+    }
+
+    // 显示Toast提示
+    function showToast(message, type = 'info') {
+        const toastContainer = document.getElementById('toastContainer');
+        const toastId = 'toast_' + Date.now();
+
+        const bgColors = {
+            success: 'bg-success',
+            error: 'bg-danger',
+            warning: 'bg-warning',
+            info: 'bg-primary'
+        };
+
+        const icons = {
+            success: 'check-circle',
+            error: 'exclamation-circle',
+            warning: 'exclamation-triangle',
+            info: 'info-circle'
+        };
+
+        const toastHtml = `
+            <div class="toast ${bgColors[type]} text-white" id="${toastId}" role="alert">
+                <div class="toast-body d-flex align-items-center">
+                    <i class="bi bi-${icons[type]} me-2"></i>
+                    <span class="flex-grow-1">${message}</span>
+                    <button type="button" class="btn-close btn-close-white ms-2" data-bs-dismiss="toast"></button>
+                </div>
+            </div>
+        `;
+
+        toastContainer.insertAdjacentHTML('beforeend', toastHtml);
+        const toastEl = document.getElementById(toastId);
+        const toast = new bootstrap.Toast(toastEl, { delay: 3000 });
+        toast.show();
+
+        toastEl.addEventListener('hidden.bs.toast', () => {
+            toastEl.remove();
+        });
+    }
+
+    // 确认对话框
+    function confirmDialog(message) {
+        return new Promise((resolve) => {
+            resolve(confirm(message));
+        });
+    }
+
+    // 封装API请求
+    async function apiRequest(url, options = {}) {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), CONFIG.apiTimeout);
+
+        const token = getToken();
+        const headers = {
+            'Content-Type': 'application/json',
+            ...options.headers
+        };
+
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+
+        try {
+            const response = await fetch(url, {
+                ...options,
+                signal: controller.signal,
+                headers: headers
+            });
+            clearTimeout(timeoutId);
+
+            if (response.status === 401) {
+                showToast('登录已过期，请重新登录', 'error');
+                removeToken();
+                setTimeout(() => window.location.reload(), 1500);
+                return { code: 401, msg: 'Unauthorized' };
+            }
+
+            return await response.json();
+        } catch (error) {
+            clearTimeout(timeoutId);
+            if (error.name === 'AbortError') {
+                throw new Error('请求超时，请检查网络连接');
+            }
+            throw error;
+        }
+    }
+
+    // 判断请求是否成功
+    function isSuccess(data) {
+        return data.code === 0 || data.code === 200;
+    }
+
+    // 更新侧边栏激活状态
+    function updateSidebarActive(page) {
+        document.querySelectorAll('.sidebar .nav-link').forEach(link => {
+            link.classList.remove('active');
+            if (link.dataset.page === page) {
+                link.classList.add('active');
+            }
+        });
+    }
+
+    // HTML转义函数
+    function escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    // ==================== 页面导航 ====================
+    function navigateTo(page) {
+        currentPage = page;
+        pageData.current = 1;
+
+        updateSidebarActive(page);
+
+        document.getElementById('sidebar').classList.remove('show');
+        document.getElementById('sidebarOverlay').classList.remove('show');
+
+        const contentWrapper = document.getElementById('contentWrapper');
+        contentWrapper.innerHTML = pageTemplates[page] || '<div class="alert alert-danger">页面不存在</div>';
+
+        setTimeout(() => {
+            switch (page) {
+                case 'dashboard':
+                    loadDashboard();
+                    break;
+                case 'users':
+                    loadUsers();
+                    break;
+                case 'records':
+                    loadRecords();
+                    break;
+                case 'qa':
+                    loadQARecords();
+                    break;
+                case 'logs':
+                    loadLogs();
+                    break;
+            }
+        }, 100);
+    }
+
+    // ==================== 首页（统计） ====================
+    async function loadDashboard() {
+        showLoading();
+        try {
+            let userCount = 0, recordCount = 0, qaCount = 0, logCount = 0;
+
+            try {
+                const usersRes = await apiRequest('/api/admin/users');
+                if (isSuccess(usersRes)) userCount = usersRes.data?.length || 0;
+            } catch (e) {}
+
+            try {
+                const recordsRes = await apiRequest('/api/getRecognitionRecords');
+                if (isSuccess(recordsRes)) recordCount = recordsRes.data?.length || 0;
+            } catch (e) {}
+
+            try {
+                const qaRes = await apiRequest('/api/getQARecords');
+                if (isSuccess(qaRes)) qaCount = qaRes.data?.length || 0;
+            } catch (e) {}
+
+            try {
+                const logsRes = await apiRequest('/api/getLogs');
+                if (isSuccess(logsRes)) logCount = logsRes.data?.length || 0;
+            } catch (e) {}
+
+            document.getElementById('userCount').textContent = userCount;
+            document.getElementById('recordCount').textContent = recordCount;
+            document.getElementById('qaCount').textContent = qaCount;
+            document.getElementById('logCount').textContent = logCount;
+
+            const chartDom = document.getElementById('recordTypeChart');
+            if (chartDom) {
+                if (myChart) {
+                    myChart.dispose();
+                }
+                myChart = echarts.init(chartDom);
+
+                const colors = ['#5470c6', '#91cc75', '#fac858', '#ee6666'];
+
+                const option = {
+                    tooltip: {
+                        trigger: 'axis',
+                        axisPointer: { type: 'shadow' }
+                    },
+                    grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
+                    xAxis: [
+                        {
+                            type: 'category',
+                            data: ['camera', 'manual', 'image', 'video'],
+                            axisTick: { alignWithLabel: true }
+                        }
+                    ],
+                    yAxis: [{ type: 'value', name: '记录数' }],
+                    series: [
+                        {
+                            name: '识别记录数',
+                            type: 'bar',
+                            barWidth: '50%',
+                            data: [
+                                { value: Math.floor(recordCount * 0.4), itemStyle: { color: colors[0] } },
+                                { value: Math.floor(recordCount * 0.1), itemStyle: { color: colors[1] } },
+                                { value: Math.floor(recordCount * 0.3), itemStyle: { color: colors[2] } },
+                                { value: Math.floor(recordCount * 0.2), itemStyle: { color: colors[3] } }
+                            ]
+                        }
+                    ]
+                };
+
+                myChart.setOption(option);
+            }
+        } catch (err) {
+            console.error('请求统计数据失败：', err);
+            showToast('获取统计数据失败，请检查后端服务', 'error');
+        } finally {
+            hideLoading();
+        }
+    }
+
+    // ==================== 用户管理 ====================
+    async function loadUsers() {
+        showLoading();
+        try {
+            const data = await apiRequest('/api/admin/users');
+
+            if (isSuccess(data)) {
+                const list = data.data || [];
+                document.getElementById('userTotal').textContent = list.length;
+                const tableBody = document.getElementById('userTableBody');
+                tableBody.innerHTML = '';
+
+                if (list.length === 0) {
+                    tableBody.innerHTML = `
+                        <tr>
+                            <td colspan="7" class="text-center text-muted">暂无用户数据</td>
+                        </tr>
+                    `;
+                } else {
+                    list.forEach(user => {
+                        const avatar = user.avatar
+                            ? `<img src="${user.avatar}" class="avatar-img" alt="头像" loading="lazy">`
+                            : '<span class="text-muted">无</span>';
+                        const nickname = user.nickname || '未设置';
+                        const role = user.role || 'user';
+
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td>${user.id}</td>
+                            <td><strong>${user.username}</strong></td>
+                            <td>${nickname}</td>
+                            <td><span class="badge ${role === 'admin' ? 'bg-danger' : 'bg-secondary'}">${role}</span></td>
+                            <td>${avatar}</td>
+                            <td>${user.create_time || user.createdAt || '未知'}</td>
+                            <td>
+                                <button class="btn btn-sm btn-warning me-2" onclick="showResetPwdModal(${user.id})">
+                                    <i class="bi bi-key me-1"></i>重置密码
+                                </button>
+                            </td>
+                        `;
+                        tableBody.appendChild(tr);
+                    });
+                }
+            } else {
+                showToast('加载用户列表失败：' + data.msg, 'error');
+            }
+        } catch (err) {
+            console.error('加载用户列表失败：', err);
+            showToast('加载用户列表失败，请检查后端服务', 'error');
+        } finally {
+            hideLoading();
+        }
+    }
+
+    function showResetPwdModal(userId) {
+        document.getElementById('resetUserId').value = userId;
+        document.getElementById('newPassword').value = '123456';
+        const modal = new bootstrap.Modal(document.getElementById('resetPwdModal'));
+        modal.show();
+    }
+
+    async function resetPassword() {
+        const id = document.getElementById('resetUserId').value;
+        showLoading();
+        try {
+            const data = await apiRequest('/api/admin/users/resetPwd', {
+                method: 'POST',
+                body: JSON.stringify({ id: id })
+            });
+
+            if (isSuccess(data)) {
+                showToast('密码重置成功 (123456)', 'success');
+                const modal = bootstrap.Modal.getInstance(document.getElementById('resetPwdModal'));
+                modal.hide();
+            } else {
+                showToast('密码重置失败：' + data.msg, 'error');
+            }
+        } catch (err) {
+            console.error('重置密码失败：', err);
+            showToast('重置密码失败，请检查后端服务', 'error');
+        } finally {
+            hideLoading();
+        }
+    }
+
+    // ==================== 识别记录 ====================
+    async function loadRecords() {
+        showLoading();
+        try {
+            const data = await apiRequest('/api/admin/records');
+
+            if (isSuccess(data)) {
+                const list = data.data || [];
+                document.getElementById('recordTotal').textContent = list.length;
+                const tableBody = document.getElementById('recordTableBody');
+                tableBody.innerHTML = '';
+
+                if (list.length === 0) {
+                    tableBody.innerHTML = `
+                        <tr>
+                            <td colspan="6" class="text-center text-muted">暂无识别记录数据</td>
+                        </tr>
+                    `;
+                } else {
+                    list.forEach(record => {
+                        const username = record.user?.username || '未知';
+                        const status = record.record_status || 'normal';
+                        const statusBadge = status === 'normal'
+                            ? '<span class="badge bg-success">正常</span>'
+                            : '<span class="badge bg-secondary">已删除</span>';
+
+                        const result = record.result_content
+                            ? `<div class="result-text" title="${escapeHtml(record.result_content)}">${escapeHtml(record.result_content)}</div>`
+                            : '<span class="text-muted">无</span>';
+
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td><strong>${record.id}</strong></td>
+                            <td>${username}</td>
+                            <td>${record.create_time || record.createdAt}</td>
+                            <td>${statusBadge}</td>
+                            <td>${result}</td>
+                            <td>
+                                ${status !== 'normal' ? `
+                                    <button class="btn btn-sm btn-success" onclick="restoreRecord(${record.id})">
+                                        <i class="bi bi-arrow-counterclockwise"></i> 恢复
+                                    </button>
+                                    <button class="btn btn-sm btn-danger" onclick="deleteRecord(${record.id})">
+                                        <i class="bi bi-trash"></i> 永久删除
+                                    </button>
+                                ` : `
+                                    <button class="btn btn-sm btn-danger" onclick="deleteRecord(${record.id})">
+                                        <i class="bi bi-trash"></i> 删除
+                                    </button>
+                                `}
+                            </td>
+                        `;
+                        tableBody.appendChild(tr);
+                    });
+                }
+            } else {
+                showToast('加载识别记录失败：' + data.msg, 'error');
+            }
+        } catch (err) {
+            console.error('加载识别记录失败：', err);
+            showToast('加载识别记录失败，请检查后端服务', 'error');
+        } finally {
+            hideLoading();
+        }
+    }
+
+    async function restoreRecord(id) {
+        const confirmed = await confirmDialog(`确定要恢复ID为【${id}】的识别记录吗？`);
+        if (!confirmed) return;
+
+        showLoading();
+        try {
+            const data = await apiRequest('/api/admin/records/restore', {
+                method: 'POST',
+                body: JSON.stringify({ id })
+            });
+
+            if (isSuccess(data)) {
+                showToast('记录恢复成功', 'success');
+                loadRecords();
+            } else {
+                showToast('记录恢复失败：' + data.msg, 'error');
+            }
+        } catch (err) {
+            console.error('恢复识别记录失败：', err);
+            showToast('恢复识别记录失败，请检查后端服务', 'error');
+        } finally {
+            hideLoading();
+        }
+    }
+
+    async function deleteRecord(id) {
+        const confirmed = await confirmDialog(`确定要永久删除ID为【${id}】的识别记录吗？此操作不可恢复！`);
+        if (!confirmed) return;
+
+        showLoading();
+        try {
+            const data = await apiRequest('/api/admin/records/delete', {
+                method: 'POST',
+                body: JSON.stringify({ id })
+            });
+
+            if (isSuccess(data)) {
+                showToast('记录已永久删除', 'success');
+                loadRecords();
+            } else {
+                showToast('记录删除失败：' + data.msg, 'error');
+            }
+        } catch (err) {
+            console.error('删除识别记录失败：', err);
+            showToast('删除识别记录失败，请检查后端服务', 'error');
+        } finally {
+            hideLoading();
+        }
+    }
+
+    // ==================== 问答记录 ====================
+    async function loadQARecords() {
+        showLoading();
+        try {
+            const data = await apiRequest('/api/admin/qa');
+
+            if (isSuccess(data)) {
+                const list = data.data || [];
+                document.getElementById('qaTotal').textContent = list.length;
+                const tableBody = document.getElementById('qaTableBody');
+                tableBody.innerHTML = '';
+
+                if (list.length === 0) {
+                    tableBody.innerHTML = `
+                        <tr>
+                            <td colspan="6" class="text-center text-muted">暂无问答记录数据</td>
+                        </tr>
+                    `;
+                } else {
+                    list.forEach(qa => {
+                        const username = qa.user?.username || '未知';
+                        const question = `<div class="long-text" title="${escapeHtml(qa.question)}">${escapeHtml(qa.question)}</div>`;
+                        const answer = `<div class="long-text" title="${escapeHtml(qa.answer)}">${escapeHtml(qa.answer)}</div>`;
+
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td><strong>${qa.id}</strong></td>
+                            <td>${username}</td>
+                            <td>${qa.create_time || qa.createdAt}</td>
+                            <td>${question}</td>
+                            <td>${answer}</td>
+                            <td>
+                                <button class="btn btn-sm btn-danger" onclick="deleteQARecord(${qa.id})">
+                                    <i class="bi bi-trash"></i> 删除
+                                </button>
+                            </td>
+                        `;
+                        tableBody.appendChild(tr);
+                    });
+                }
+            } else {
+                showToast('加载问答记录失败：' + data.msg, 'error');
+            }
+        } catch (err) {
+            console.error('加载问答记录失败：', err);
+            showToast('加载问答记录失败，请检查后端服务', 'error');
+        } finally {
+            hideLoading();
+        }
+    }
+
+    async function deleteQARecord(id) {
+        const confirmed = await confirmDialog(`确定要永久删除ID为【${id}】的问答记录吗？此操作不可恢复！`);
+        if (!confirmed) return;
+
+        showLoading();
+        try {
+            const data = await apiRequest('/api/admin/qa/delete', {
+                method: 'POST',
+                body: JSON.stringify({ id })
+            });
+
+            if (isSuccess(data)) {
+                showToast('问答记录已永久删除', 'success');
+                loadQARecords(); // 重新加载列表
+            } else {
+                showToast('删除失败：' + data.msg, 'error');
+            }
+        } catch (err) {
+            console.error('删除问答记录失败：', err);
+            showToast('删除问答记录失败，请检查后端服务', 'error');
+        } finally {
+            hideLoading();
+        }
+    }
+
+    // ==================== 操作日志 ====================
+    async function loadLogs() {
+        showLoading();
+        try {
+            const data = await apiRequest('/api/getLogs');
+
+            if (isSuccess(data)) {
+                const list = data.data || [];
+                document.getElementById('logTotal').textContent = list.length;
+                const tableBody = document.getElementById('logTableBody');
+                tableBody.innerHTML = '';
+
+                if (list.length === 0) {
+                    tableBody.innerHTML = `
+                        <tr>
+                            <td colspan="3" class="text-center text-muted">暂无系统操作日志</td>
+                        </tr>
+                    `;
+                } else {
+                    list.forEach(log => {
+                        const content = log.content
+                            ? `<div class="log-content" title="${escapeHtml(log.content)}">${escapeHtml(log.content)}</div>`
+                            : '<span class="text-muted">空日志</span>';
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td><strong>${log.id}</strong></td>
+                            <td>${log.create_time || log.createdAt}</td>
+                            <td>${content}</td>
+                        `;
+                        tableBody.appendChild(tr);
+                    });
+                }
+            } else {
+                showToast('加载日志失败：' + data.msg, 'error');
+            }
+        } catch (err) {
+            console.error('加载日志失败：', err);
+            showToast('加载日志失败，请检查后端服务', 'error');
+        } finally {
+            hideLoading();
+        }
+    }
+
+    // ==================== 初始化 ====================
+    document.addEventListener('DOMContentLoaded', function() {
+        const sidebarToggle = document.getElementById('sidebarToggle');
+        const sidebar = document.getElementById('sidebar');
+        const sidebarOverlay = document.getElementById('sidebarOverlay');
+
+        sidebarToggle.addEventListener('click', function() {
+            sidebar.classList.toggle('show');
+            sidebarOverlay.classList.toggle('show');
+        });
+
+        sidebarOverlay.addEventListener('click', function() {
+            sidebar.classList.remove('show');
+            sidebarOverlay.classList.remove('show');
+        });
+
+        navigateTo('dashboard');
+    });
+
+    // 窗口大小变化时调整图表
+    window.addEventListener('resize', function() {
+        if (myChart && currentPage === 'dashboard') {
+            myChart.resize();
+        }
+    });
+</script>
+</body>
+</html>

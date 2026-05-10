@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智能识别系统 - 登录/注册</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: "Microsoft YaHei", sans-serif; }
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .form-box {
+            background: white;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            width: 400px;
+        }
+        .tab-switch { display: flex; justify-content: center; margin-bottom: 20px; }
+        .tab-btn {
+            padding: 8px 20px;
+            border: none;
+            background: transparent;
+            font-size: 16px;
+            cursor: pointer;
+            color: #666;
+        }
+        .tab-btn.active {
+            color: #667eea;
+            font-weight: bold;
+            border-bottom: 2px solid #667eea;
+        }
+        .form-title {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #333;
+            font-size: 24px;
+        }
+        .form-item { margin-bottom: 20px; }
+        .form-item label {
+            display: block;
+            margin-bottom: 8px;
+            color: #666;
+        }
+        .form-item input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        .submit-btn {
+            width: 100%;
+            padding: 12px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        .submit-btn:hover { background: #5a6edb; }
+        .tip-text {
+            color: red;
+            text-align: center;
+            margin-bottom: 15px;
+            display: none;
+        }
+        .success-text {
+            color: green;
+            text-align: center;
+            margin-bottom: 15px;
+            display: none;
+        }
+        .loading {
+            display: inline-block;
+            width: 18px;
+            height: 18px;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+<div class="form-box">
+    <div class="tab-switch">
+        <button class="tab-btn active" id="loginTab">登录</button>
+        <button class="tab-btn" id="registerTab">注册</button>
+    </div>
+
+    <!-- 登录表单 -->
+    <div id="loginForm">
+        <h2 class="form-title">🤖 智能识别系统 - 登录</h2>
+        <div class="tip-text" id="loginError">账号或密码错误</div>
+        <div class="form-item">
+            <label for="loginUsername">用户名</label>
+            <input type="text" id="loginUsername" placeholder="请输入用户名">
+        </div>
+        <div class="form-item">
+            <label for="loginPassword">密码</label>
+            <input type="password" id="loginPassword" placeholder="请输入密码">
+        </div>
+        <button class="submit-btn" id="loginBtn">登录系统</button>
+    </div>
+
+    <!-- 注册表单 -->
+    <div id="registerForm" style="display: none;">
+        <h2 class="form-title">🤖 智能识别系统 - 注册</h2>
+        <div class="tip-text" id="registerError">注册失败提示</div>
+        <div class="success-text" id="registerSuccess">注册成功提示</div>
+        <div class="form-item">
+            <label for="regUsername">用户名</label>
+            <input type="text" id="regUsername" placeholder="请输入用户名（唯一）">
+        </div>
+        <div class="form-item">
+            <label for="regPassword">密码</label>
+            <input type="password" id="regPassword" placeholder="请输入密码（至少6位）">
+        </div>
+        <div class="form-item">
+            <label for="regInviteCode">邀请码（必填）</label>
+            <input type="text" id="regInviteCode" placeholder="请输入注册邀请码">
+        </div>
+        <button class="submit-btn" id="registerBtn">提交注册</button>
+    </div>
+</div>
+
+<script>
+    // ========== 本地知识库/视频库数据（新增） ==========
+    // 本地知识库数据
+    const localKnowledgeBase = [
+        {
+            title: "水稻常见病虫害识别指南",
+            content: `
+      <h4>一、稻飞虱</h4>
+      <p>稻飞虱以刺吸植株汁液为害水稻，导致叶片发黄、植株倒伏。防治方法：选用抗虫品种，合理密植，排水晒田，使用吡虫啉等药剂喷雾。</p>
+      <h4>二、纹枯病</h4>
+      <p>纹枯病在高温高湿环境下易爆发，危害叶鞘和叶片。防治方法：打捞菌核，合理灌溉，使用井冈霉素等药剂。</p>
+      <h4>三、稻曲病</h4>
+      <p>稻曲病在孕穗期侵染，形成墨绿色菌球。防治方法：选用抗病品种，破口前7-10天喷施戊唑醇等药剂。</p>
+    `
+        },
+        {
+            title: "稻瘟病防治技术详解",
+            content: `
+      <h4>一、农业防治</h4>
+      <p>选用抗病品种，合理施肥，避免偏施氮肥，浅水勤灌，适时晒田。</p>
+      <h4>二、生物防治</h4>
+      <p>利用枯草芽孢杆菌、假单胞菌等生防菌抑制病原菌。</p>
+      <h4>三、化学防治</h4>
+      <p>叶瘟：发病初期喷施三环唑；穗瘟：破口期和齐穗期各喷一次三环唑或稻瘟灵。</p>
+    `
+        }
+    ];
+
+    // 本地视频库数据
+    const localVideoLibrary = [
+        {
+            title: "稻瘟病识别与防治教学",
+            src: "./assets/videos/稻瘟病识别与防治教学.mp4", // 本地视频路径
+            poster: "./assets/images/稻瘟病识别与防治教学.jpg" // 封面图
+        },
+        {
+            title: "水稻病虫害综合防治教学",
+            src: "./assets/videos/水稻病虫害综合防治教学.mp4",
+            poster: "./assets/images/水稻常见病虫害识别指南.jpg"
+        }
+    ];
+
+    // ========== 全局配置 ==========
+    const API_BASE_URL = 'http://localhost:3000';
+
+    // ========== 页面加载时的逻辑 ==========
+    window.onload = () => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const redirectTo = urlParams.get('redirect');
+        // 核心修复：使用sessionStorage，关闭页面自动清空
+        const token = sessionStorage.getItem('token');
+        const userRole = sessionStorage.getItem('userRole');
+
+        // 如果已有有效token，自动跳转
+        if (token && token.trim() !== '') {
+            if (redirectTo) {
+                window.location.href = redirectTo;
+                return;
+            }
+            if (userRole === 'admin') {
+                window.location.href = '/admin';
+            } else {
+                window.location.href = '/frontend/index.html';
+            }
+        }
+    };
+
+    // ========== 标签切换逻辑 ==========
+    const loginTab = document.getElementById('loginTab');
+    const registerTab = document.getElementById('registerTab');
+    const loginForm = document.getElementById('loginForm');
+    const registerForm = document.getElementById('registerForm');
+
+    loginTab.addEventListener('click', () => {
+        loginTab.classList.add('active');
+        registerTab.classList.remove('active');
+        loginForm.style.display = 'block';
+        registerForm.style.display = 'none';
+        document.getElementById('loginError').style.display = 'none';
+        document.getElementById('registerError').style.display = 'none';
+        document.getElementById('registerSuccess').style.display = 'none';
+    });
+
+    registerTab.addEventListener('click', () => {
+        registerTab.classList.add('active');
+        loginTab.classList.remove('active');
+        registerForm.style.display = 'block';
+        loginForm.style.display = 'none';
+        document.getElementById('loginError').style.display = 'none';
+        document.getElementById('registerError').style.display = 'none';
+        document.getElementById('registerSuccess').style.display = 'none';
+    });
+
+    // ========== 注册功能 ==========
+    const registerBtn = document.getElementById('registerBtn');
+    const regUsername = document.getElementById('regUsername');
+    const regPassword = document.getElementById('regPassword');
+    const regInviteCode = document.getElementById('regInviteCode');
+    const registerError = document.getElementById('registerError');
+    const registerSuccess = document.getElementById('registerSuccess');
+
+    registerBtn.addEventListener('click', async () => {
+        const username = regUsername.value.trim();
+        const password = regPassword.value.trim();
+        const inviteCode = regInviteCode.value.trim();
+
+        if (!username || !password || !inviteCode) {
+            registerError.textContent = '请填写所有必填项！';
+            registerError.style.display = 'block';
+            return;
+        }
+        if (password.length < 6) {
+            registerError.textContent = '密码长度至少6位！';
+            registerError.style.display = 'block';
+            return;
+        }
+
+        registerBtn.disabled = true;
+        registerBtn.innerHTML = '<span class="loading"></span>注册中...';
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/register`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password, inviteCode })
+            });
+
+            const result = await response.json();
+            if (result.code === 0) {
+                registerSuccess.textContent = result.msg + '，3秒后自动跳转到登录页';
+                registerSuccess.style.display = 'block';
+                registerError.style.display = 'none';
+                regUsername.value = '';
+                regPassword.value = '';
+                regInviteCode.value = '';
+                setTimeout(() => loginTab.click(), 3000);
+            } else {
+                registerError.textContent = result.msg;
+                registerError.style.display = 'block';
+                registerSuccess.style.display = 'none';
+            }
+        } catch (err) {
+            registerError.textContent = '注册失败：请检查后端服务是否启动！';
+            registerError.style.display = 'block';
+            registerSuccess.style.display = 'none';
+        } finally {
+            registerBtn.disabled = false;
+            registerBtn.innerHTML = '提交注册';
+        }
+    });
+
+    // ========== 登录功能 ==========
+    const loginBtn = document.getElementById('loginBtn');
+    const loginUsername = document.getElementById('loginUsername');
+    const loginPassword = document.getElementById('loginPassword');
+    const loginError = document.getElementById('loginError');
+
+    loginBtn.addEventListener('click', async () => {
+        const username = loginUsername.value.trim();
+        const password = loginPassword.value.trim();
+
+        if (!username || !password) {
+            loginError.textContent = '请填写用户名和密码！';
+            loginError.style.display = 'block';
+            return;
+        }
+
+        loginBtn.disabled = true;
+        loginBtn.innerHTML = '<span class="loading"></span>登录中...';
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            });
+
+            const result = await response.json();
+            if (result.code === 0 && result.data?.token) {
+                const token = result.data.token;
+                const user = result.data.user;
+                const role = user?.role || 'user';
+
+                // 核心修复：全部存在sessionStorage，关闭页面自动清空
+                sessionStorage.setItem('token', token);
+                sessionStorage.setItem('username', user?.username || username);
+                sessionStorage.setItem('userRole', role);
+                sessionStorage.setItem('isLogin', 'true');
+
+                loginError.style.display = 'none';
+
+                // 跳转逻辑
+                const urlParams = new URLSearchParams(window.location.search);
+                const redirectTo = urlParams.get('redirect');
+
+                if (redirectTo) {
+                    alert('登录成功！即将跳转');
+                    window.location.href = redirectTo;
+                } else if (role === 'admin') {
+                    alert('管理员登录成功！即将进入后台管理系统');
+                    window.location.href = '/admin';
+                } else {
+                    alert('登录成功！即将进入系统');
+                    window.location.href = '/frontend/index.html';
+                }
+
+            } else {
+                loginError.textContent = result.msg || '账号或密码错误';
+                loginError.style.display = 'block';
+            }
+        } catch (err) {
+            loginError.textContent = '登录失败：请检查后端服务是否启动！';
+            loginError.style.display = 'block';
+        } finally {
+            loginBtn.disabled = false;
+            loginBtn.innerHTML = '登录系统';
+        }
+    });
+
+    // 回车登录
+    document.getElementById('loginPassword').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') loginBtn.click();
+    });
+</script>
+</body>
+</html>
